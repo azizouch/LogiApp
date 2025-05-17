@@ -22,20 +22,31 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // Helper function to check if a table exists
 export async function tableExists(tableName: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .eq('table_name', tableName);
+    // Try to get the count of rows from the table
+    // If the table doesn't exist, this will return an error
+    const { count, error } = await supabase
+      .from(tableName)
+      .select('*', { count: 'exact', head: true });
 
+    // If there's an error, check if it's because the table doesn't exist
     if (error) {
-      console.error(`Error checking if table ${tableName} exists:`, error);
-      return false;
+      console.warn(`Error checking table ${tableName}:`, error.message);
+
+      // If the error message contains 'does not exist', the table doesn't exist
+      if (error.message && error.message.includes('does not exist')) {
+        return false;
+      }
+
+      // For other types of errors, we'll assume the table might exist
+      // but we don't have permission to access it
+      return true;
     }
 
-    return data && data.length > 0;
+    // If there's no error, the table exists
+    return true;
   } catch (error) {
     console.error(`Error checking if table ${tableName} exists:`, error);
-    return false;
+    // For unexpected errors, we'll assume the table might exist
+    return true;
   }
 }

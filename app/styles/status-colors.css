@@ -1,0 +1,103 @@
+/* Custom status colors - All with outline style (transparent background, colored text and border) */
+
+/* Common styles for all status badges - with higher specificity to override default Badge styles */
+.badge[class*="status-"],
+[class^="status-"] {
+  background-color: transparent !important;
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 500;
+}
+
+/* Blue */
+.status-blue {
+  color: rgba(30, 64, 175, 1); /* dark blue text */
+  border-color: rgba(30, 64, 175, 1); /* same as text color */
+}
+
+/* Green */
+.status-green {
+  color: rgba(22, 101, 52, 1); /* dark green text */
+  border-color: rgba(22, 101, 52, 1); /* same as text color */
+}
+
+/* Red */
+.status-red {
+  color: rgba(185, 28, 28, 1); /* dark red text */
+  border-color: rgba(185, 28, 28, 1); /* same as text color */
+}
+
+/* Yellow */
+.status-yellow {
+  color: rgba(161, 98, 7, 1); /* dark yellow text */
+  border-color: rgba(161, 98, 7, 1); /* same as text color */
+}
+
+/* Orange */
+.status-orange {
+  color: rgba(194, 65, 12, 1); /* dark orange text */
+  border-color: rgba(194, 65, 12, 1); /* same as text color */
+}
+
+/* Purple */
+.status-purple {
+  color: rgba(107, 33, 168, 1); /* dark purple text */
+  border-color: rgba(107, 33, 168, 1); /* same as text color */
+}
+
+/* Pink */
+.status-pink {
+  color: rgba(157, 23, 77, 1); /* dark pink text */
+  border-color: rgba(157, 23, 77, 1); /* same as text color */
+}
+
+/* Gray */
+.status-gray {
+  color: rgba(55, 65, 81, 1); /* dark gray text */
+  border-color: rgba(55, 65, 81, 1); /* same as text color */
+}
+
+/* Teal */
+.status-teal {
+  color: rgba(15, 118, 110, 1); /* dark teal text */
+  border-color: rgba(15, 118, 110, 1); /* same as text color */
+}
+
+/* Indigo */
+.status-indigo {
+  color: rgba(55, 48, 163, 1); /* dark indigo text */
+  border-color: rgba(55, 48, 163, 1); /* same as text color */
+}
+
+/* Lime */
+.status-lime {
+  color: rgba(63, 98, 18, 1); /* dark lime text */
+  border-color: rgba(63, 98, 18, 1); /* same as text color */
+}
+
+/* Cyan */
+.status-cyan {
+  color: rgba(14, 116, 144, 1); /* dark cyan text */
+  border-color: rgba(14, 116, 144, 1); /* same as text color */
+}
+
+/* Amber */
+.status-amber {
+  color: rgba(180, 83, 9, 1); /* dark amber text */
+  border-color: rgba(180, 83, 9, 1); /* same as text color */
+}
+
+/* For backward compatibility, keep the -text variants with the same styling */
+.status-blue-text { color: rgba(30, 64, 175, 1); border-color: rgba(30, 64, 175, 1); }
+.status-green-text { color: rgba(22, 101, 52, 1); border-color: rgba(22, 101, 52, 1); }
+.status-red-text { color: rgba(185, 28, 28, 1); border-color: rgba(185, 28, 28, 1); }
+.status-yellow-text { color: rgba(161, 98, 7, 1); border-color: rgba(161, 98, 7, 1); }
+.status-orange-text { color: rgba(194, 65, 12, 1); border-color: rgba(194, 65, 12, 1); }
+.status-purple-text { color: rgba(107, 33, 168, 1); border-color: rgba(107, 33, 168, 1); }
+.status-pink-text { color: rgba(157, 23, 77, 1); border-color: rgba(157, 23, 77, 1); }
+.status-gray-text { color: rgba(55, 65, 81, 1); border-color: rgba(55, 65, 81, 1); }
+.status-teal-text { color: rgba(15, 118, 110, 1); border-color: rgba(15, 118, 110, 1); }
+.status-indigo-text { color: rgba(55, 48, 163, 1); border-color: rgba(55, 48, 163, 1); }
+.status-lime-text { color: rgba(63, 98, 18, 1); border-color: rgba(63, 98, 18, 1); }
+.status-cyan-text { color: rgba(14, 116, 144, 1); border-color: rgba(14, 116, 144, 1); }
+.status-amber-text { color: rgba(180, 83, 9, 1); border-color: rgba(180, 83, 9, 1); }

@@ -1,4 +1,7 @@
-import type React from "react"
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -6,8 +9,197 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { toast } from "@/components/ui/use-toast"
+import { Loader2, Plus, Pencil, Trash2 } from "lucide-react"
+import { supabase } from '@/lib/supabase'
 
 export default function ParametresPage() {
+  const [loading, setLoading] = useState(false)
+  const [colisStatuses, setColisStatuses] = useState<{id: string, nom: string, type: string}[]>([])
+  const [bonStatuses, setBonStatuses] = useState<{id: string, nom: string, type: string}[]>([])
+
+  // Status dialog state
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [editingStatus, setEditingStatus] = useState<{id: string, nom: string, type: string} | null>(null)
+  const [statusName, setStatusName] = useState('')
+  const [statusType, setStatusType] = useState('colis')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Load statuses from database
+  useEffect(() => {
+    async function loadStatuses() {
+      setLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('statuts')
+          .select('*')
+          .order('nom', { ascending: true })
+
+        if (error) throw error
+
+        // Split statuses by type
+        const colisStatuses = data.filter(status => status.type === 'colis')
+        const bonStatuses = data.filter(status => status.type === 'bon')
+
+        setColisStatuses(colisStatuses)
+        setBonStatuses(bonStatuses)
+      } catch (error) {
+        console.error('Error loading statuses:', error)
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les statuts",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadStatuses()
+  }, [])
+
+  // Handle adding/editing status
+  const handleSaveStatus = async () => {
+    if (!statusName.trim()) {
+      toast({
+        title: "Erreur",
+        description: "Le nom du statut ne peut pas être vide",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      if (editingStatus) {
+        // Update existing status
+        const { error } = await supabase
+          .from('statuts')
+          .update({ nom: statusName, type: statusType })
+          .eq('id', editingStatus.id)
+
+        if (error) throw error
+
+        // Update local state
+        if (statusType === 'colis') {
+          setColisStatuses(prev =>
+            prev.map(status =>
+              status.id === editingStatus.id
+                ? { ...status, nom: statusName }
+                : status
+            )
+          )
+        } else {
+          setBonStatuses(prev =>
+            prev.map(status =>
+              status.id === editingStatus.id
+                ? { ...status, nom: statusName }
+                : status
+            )
+          )
+        }
+
+        toast({
+          title: "Succès",
+          description: "Le statut a été mis à jour",
+        })
+      } else {
+        // Add new status
+        const { data, error } = await supabase
+          .from('statuts')
+          .insert({ nom: statusName, type: statusType })
+          .select()
+
+        if (error) throw error
+
+        // Update local state
+        if (statusType === 'colis') {
+          setColisStatuses(prev => [...prev, data[0]])
+        } else {
+          setBonStatuses(prev => [...prev, data[0]])
+        }
+
+        toast({
+          title: "Succès",
+          description: "Le statut a été ajouté",
+        })
+      }
+
+      // Reset form and close dialog
+      setStatusDialogOpen(false)
+      setEditingStatus(null)
+      setStatusName('')
+    } catch (error: any) {
+      console.error('Error saving status:', error)
+      toast({
+        title: "Erreur",
+        description: error.message || "Une erreur est survenue",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Handle deleting status
+  const handleDeleteStatus = async (status: {id: string, nom: string, type: string}) => {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer le statut "${status.nom}" ?`)) {
+      try {
+        const { error } = await supabase
+          .from('statuts')
+          .delete()
+          .eq('id', status.id)
+
+        if (error) throw error
+
+        // Update local state
+        if (status.type === 'colis') {
+          setColisStatuses(prev => prev.filter(s => s.id !== status.id))
+        } else {
+          setBonStatuses(prev => prev.filter(s => s.id !== status.id))
+        }
+
+        toast({
+          title: "Succès",
+          description: "Le statut a été supprimé",
+        })
+      } catch (error: any) {
+        console.error('Error deleting status:', error)
+        toast({
+          title: "Erreur",
+          description: error.message || "Une erreur est survenue",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  // Open dialog for adding new status
+  const openAddDialog = (type: string) => {
+    setEditingStatus(null)
+    setStatusName('')
+    setStatusType(type)
+    setStatusDialogOpen(true)
+  }
+
+  // Open dialog for editing status
+  const openEditDialog = (status: {id: string, nom: string, type: string}) => {
+    setEditingStatus(status)
+    setStatusName(status.nom)
+    setStatusType(status.type)
+    setStatusDialogOpen(true)
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8">
@@ -18,9 +210,7 @@ export default function ParametresPage() {
       <Tabs defaultValue="general">
         <TabsList className="mb-6">
           <TabsTrigger value="general">Général</TabsTrigger>
-          <TabsTrigger value="statuts">Statuts</TabsTrigger>
           <TabsTrigger value="numerotation">Numérotation</TabsTrigger>
-          <TabsTrigger value="utilisateurs">Utilisateurs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -110,69 +300,7 @@ export default function ParametresPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="statuts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Configuration des statuts</CardTitle>
-              <CardDescription>
-                Personnalisez les statuts disponibles pour les colis et les bons de distribution
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Statuts des colis</h3>
-                  <div className="space-y-2">
-                    {["En attente", "Pris en charge", "En cours de livraison", "Livré", "Retourné"].map(
-                      (status, index) => (
-                        <div key={index} className="flex items-center justify-between border p-3 rounded-md">
-                          <span>{status}</span>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              Modifier
-                            </Button>
-                            {index > 4 && (
-                              <Button variant="destructive" size="sm">
-                                Supprimer
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                  <Button className="mt-4" variant="outline">
-                    Ajouter un statut
-                  </Button>
-                </div>
 
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Statuts des bons de distribution</h3>
-                  <div className="space-y-2">
-                    {["En cours", "Complété", "Annulé"].map((status, index) => (
-                      <div key={index} className="flex items-center justify-between border p-3 rounded-md">
-                        <span>{status}</span>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Modifier
-                          </Button>
-                          {index > 2 && (
-                            <Button variant="destructive" size="sm">
-                              Supprimer
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <Button className="mt-4" variant="outline">
-                    Ajouter un statut
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="numerotation">
           <Card>
@@ -276,158 +404,7 @@ export default function ParametresPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="utilisateurs">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestion des utilisateurs</CardTitle>
-              <CardDescription>Gérez les utilisateurs et leurs rôles dans le système</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium">Utilisateurs</h3>
-                  <Button>Ajouter un utilisateur</Button>
-                </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nom</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Rôle</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">Admin Système</TableCell>
-                      <TableCell>admin@logitrack.fr</TableCell>
-                      <TableCell>Admin</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm">
-                            Modifier
-                          </Button>
-                          <Button variant="destructive" size="sm">
-                            Supprimer
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Jean Lefebvre</TableCell>
-                      <TableCell>jean.lefebvre@example.com</TableCell>
-                      <TableCell>Livreur</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm">
-                            Modifier
-                          </Button>
-                          <Button variant="destructive" size="sm">
-                            Supprimer
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Marie Dubois</TableCell>
-                      <TableCell>marie.dubois@example.com</TableCell>
-                      <TableCell>Opérateur</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm">
-                            Modifier
-                          </Button>
-                          <Button variant="destructive" size="sm">
-                            Supprimer
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-
-                <div className="space-y-4 mt-8">
-                  <h3 className="text-lg font-medium">Rôles et permissions</h3>
-                  <div className="space-y-2">
-                    <div className="border p-4 rounded-md">
-                      <h4 className="font-medium mb-2">Admin</h4>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Accès complet à toutes les fonctionnalités du système
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Gestion des utilisateurs</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Configuration système</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Gestion des colis</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Assignation des livreurs</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border p-4 rounded-md">
-                      <h4 className="font-medium mb-2">Livreur</h4>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Accès limité aux bons de distribution et colis assignés
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Voir les bons assignés</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Modifier statut des colis</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                          <span>Gestion des clients</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                          <span>Configuration système</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border p-4 rounded-md">
-                      <h4 className="font-medium mb-2">Opérateur</h4>
-                      <p className="text-sm text-muted-foreground mb-2">Gestion des colis, clients et entreprises</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Créer/éditer colis</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Gestion des clients</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                          <span>Générer bons de distribution</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                          <span>Gestion des utilisateurs</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )

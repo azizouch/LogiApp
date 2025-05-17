@@ -54,23 +54,31 @@ export default function BonsPage() {
         </Button>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle>Recherche</CardTitle>
-          <CardDescription>Rechercher un bon de distribution par numéro, livreur ou statut</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Rechercher un bon de distribution..." className="pl-8 w-full md:w-1/2" />
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+          <div>
+            <div className="text-lg font-medium mb-1.5">Recherche</div>
+            <div className="text-sm text-muted-foreground">
+              Rechercher un bon de distribution par numéro, livreur ou statut
+            </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="relative w-full md:w-1/2">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Rechercher un bon de distribution..."
+              className="pl-8 w-full"
+            />
+          </div>
+        </div>
+      </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle>Liste des Bons de Distribution</CardTitle>
-          <CardDescription>Total: {bons.length} bons trouvés</CardDescription>
+          <div className="flex justify-between items-center">
+            <CardTitle>Liste des Bons de Distribution</CardTitle>
+            <CardDescription className="mt-0">Total: {bons.length} bons trouvés</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -95,7 +103,11 @@ export default function BonsPage() {
                   </TableCell>
                   <TableCell>{bon.livreur}</TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {new Date(bon.dateCreation).toLocaleDateString("fr-FR")}
+                    {bon.dateCreation ?
+                      new Date(bon.dateCreation)
+                        .toLocaleDateString("fr-FR")
+                        .replace(/(^\w|\s\w)(\S*)/g, (_, m1, m2) => m1.toUpperCase() + m2)
+                      : ""}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{bon.nbColis}</TableCell>
                   <TableCell>

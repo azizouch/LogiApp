@@ -69,16 +69,16 @@ export async function fetchColis(filters: {
       .from('colis')
       .select(`
         id,
+        client_id,
+        entreprise_id,
+        livreur_id,
         statut,
-        date_creation,
-        clients!inner(id, nom),
-        entreprises(id, nom),
-        livreurs(id, nom)
+        date_creation
       `);
 
     // Apply filters
     if (filters.search) {
-      query = query.or(`clients.nom.ilike.%${filters.search}%,id.ilike.%${filters.search}%`);
+      query = query.or(`id.ilike.%${filters.search}%`);
     }
 
     if (filters.statut && filters.statut !== 'tous') {
@@ -98,9 +98,6 @@ export async function fetchColis(filters: {
         case 'ancien':
           query = query.order('date_creation', { ascending: true });
           break;
-        case 'client':
-          query = query.order('clients.nom', { ascending: true });
-          break;
         default:
           query = query.order('date_creation', { ascending: false });
       }
@@ -108,25 +105,79 @@ export async function fetchColis(filters: {
       query = query.order('date_creation', { ascending: false });
     }
 
-    const { data, error } = await query;
+    const { data: colisData, error: colisError } = await query;
 
-    if (error) {
-      console.error('Error in Supabase query:', error);
-      // If there's an error with the query, return mock data
+    if (colisError) {
+      console.error('Error in Supabase colis query:', colisError);
       return getMockColis();
     }
 
+    // Fetch related data
+    const clientIds = colisData.map((colis: any) => colis.client_id).filter(Boolean);
+    const entrepriseIds = colisData.map((colis: any) => colis.entreprise_id).filter(Boolean);
+    const livreurIds = colisData.map((colis: any) => colis.livreur_id).filter(Boolean);
+
+    // Fetch clients
+    const { data: clientsData, error: clientsError } = await supabase
+      .from('clients')
+      .select('id, nom')
+      .in('id', clientIds);
+
+    if (clientsError) {
+      console.error('Error fetching clients:', clientsError);
+    }
+
+    // Fetch entreprises
+    const { data: entreprisesData, error: entreprisesError } = await supabase
+      .from('entreprises')
+      .select('id, nom')
+      .in('id', entrepriseIds);
+
+    if (entreprisesError) {
+      console.error('Error fetching entreprises:', entreprisesError);
+    }
+
+    // Fetch livreurs from utilisateurs table
+    const { data: livreursData, error: livreursError } = await supabase
+      .from('utilisateurs')
+      .select('id, nom, prenom')
+      .eq('role', 'Livreur')
+      .in('id', livreurIds);
+
+    if (livreursError) {
+      console.error('Error fetching livreurs:', livreursError);
+    }
+
+    // Create lookup maps
+    const clientsMap = (clientsData || []).reduce((map: any, client: any) => {
+      map[client.id] = client;
+      return map;
+    }, {});
+
+    const entreprisesMap = (entreprisesData || []).reduce((map: any, entreprise: any) => {
+      map[entreprise.id] = entreprise;
+      return map;
+    }, {});
+
+    const livreursMap = (livreursData || []).reduce((map: any, livreur: any) => {
+      map[livreur.id] = {
+        ...livreur,
+        nom: `${livreur.prenom} ${livreur.nom}` // Combine prenom and nom
+      };
+      return map;
+    }, {});
+
     // Transform the data to match our frontend structure
-    return data.map((item: any) => ({
+    return colisData.map((item: any) => ({
       id: item.id,
-      client: item.clients.nom,
-      client_id: item.clients.id,
-      entreprise: item.entreprises?.nom || '-',
-      entreprise_id: item.entreprises?.id || null,
+      client: clientsMap[item.client_id]?.nom || 'Client inconnu',
+      client_id: item.client_id,
+      entreprise: entreprisesMap[item.entreprise_id]?.nom || '-',
+      entreprise_id: item.entreprise_id,
       statut: item.statut,
       dateCreation: item.date_creation,
-      livreur: item.livreurs?.nom || '-',
-      livreur_id: item.livreurs?.id || null,
+      livreur: livreursMap[item.livreur_id]?.nom || '-',
+      livreur_id: item.livreur_id,
     }));
   } catch (error) {
     console.error('Error fetching colis:', error);
@@ -199,20 +250,36 @@ function getMockColis(): Colis[] {
 export async function fetchLivreurs() {
   try {
     // Check if table exists
-    const livreursTableExists = await tableExists('livreurs');
-    if (!livreursTableExists) {
-      console.warn('Livreurs table does not exist yet. Returning mock data.');
+    const utilisateursTableExists = await tableExists('utilisateurs');
+    if (!utilisateursTableExists) {
+      console.warn('Utilisateurs table does not exist yet. Returning mock data.');
       return getMockLivreurs();
     }
 
-    const { data, error } = await supabase.from('livreurs').select('*');
+    // Fetch livreurs data from utilisateurs table where role is 'Livreur'
+    const { data, error } = await supabase
+      .from('utilisateurs')
+      .select('*')
+      .eq('role', 'Livreur');
 
     if (error) {
       console.error('Error in Supabase query:', error);
       return getMockLivreurs();
     }
 
-    return data;
+    // Transform the data to match our frontend structure
+    return data.map((livreur: any) => ({
+      id: livreur.id,
+      nom: `${livreur.prenom} ${livreur.nom}`,
+      telephone: livreur.telephone,
+      email: livreur.email,
+      vehicule: livreur.vehicule,
+      zone: livreur.zone,
+      adresse: livreur.adresse,
+      ville: livreur.ville,
+      nbColis: Math.floor(Math.random() * 20) + 1, // Random number between 1-20
+      nbBons: Math.floor(Math.random() * 5) + 1,   // Random number between 1-5
+    }));
   } catch (error) {
     console.error('Error fetching livreurs:', error);
     return getMockLivreurs();
@@ -265,32 +332,68 @@ function getMockLivreurs(): Livreur[] {
   ];
 }
 
-export async function fetchClients(search?: string) {
+export async function fetchClients(search?: string, page: number = 1, pageSize: number = 10) {
   try {
     // Check if table exists
     const clientsTableExists = await tableExists('clients');
     if (!clientsTableExists) {
       console.warn('Clients table does not exist yet. Returning mock data.');
-      return getMockClients(search);
+      const mockData = getMockClients(search);
+      return {
+        data: mockData.slice((page - 1) * pageSize, page * pageSize),
+        count: mockData.length
+      };
     }
 
+    // First get the total count
+    let countQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
+
+    if (search) {
+      countQuery = countQuery.or(`nom.ilike.%${search}%,telephone.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+
+    const { count, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error('Error getting count:', countError);
+      const mockData = getMockClients(search);
+      return {
+        data: mockData.slice((page - 1) * pageSize, page * pageSize),
+        count: mockData.length
+      };
+    }
+
+    // Then get the paginated data
     let query = supabase.from('clients').select('*');
 
     if (search) {
       query = query.or(`nom.ilike.%${search}%,telephone.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
+    // Apply pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
+
     const { data, error } = await query;
 
     if (error) {
       console.error('Error in Supabase query:', error);
-      return getMockClients(search);
+      const mockData = getMockClients(search);
+      return {
+        data: mockData.slice((page - 1) * pageSize, page * pageSize),
+        count: mockData.length
+      };
     }
 
-    return data;
+    return { data, count };
   } catch (error) {
     console.error('Error fetching clients:', error);
-    return getMockClients(search);
+    const mockData = getMockClients(search);
+    return {
+      data: mockData.slice((page - 1) * pageSize, page * pageSize),
+      count: mockData.length
+    };
   }
 }
 
@@ -373,7 +476,12 @@ export async function fetchEntreprises(search?: string) {
       return getMockEntreprises(search);
     }
 
-    return data;
+    // Add mock counts for UI purposes
+    return data.map((entreprise: any) => ({
+      ...entreprise,
+      nbClients: Math.floor(Math.random() * 10) + 1, // Random number between 1-10
+      nbColis: Math.floor(Math.random() * 30) + 1,   // Random number between 1-30
+    }));
   } catch (error) {
     console.error('Error fetching entreprises:', error);
     return getMockEntreprises(search);
@@ -445,32 +553,46 @@ export async function fetchBons(search?: string) {
       return getMockBons(search);
     }
 
+    // Fetch bons data
     let query = supabase
       .from('bons')
-      .select(`
-        id,
-        date_creation,
-        nb_colis,
-        statut,
-        livreurs!inner(id, nom)
-      `);
+      .select('*');
 
     if (search) {
-      query = query.or(`id.ilike.%${search}%,livreurs.nom.ilike.%${search}%,statut.ilike.%${search}%`);
+      query = query.or(`id.ilike.%${search}%,statut.ilike.%${search}%`);
     }
 
-    const { data, error } = await query;
+    const { data: bonsData, error: bonsError } = await query;
 
-    if (error) {
-      console.error('Error in Supabase query:', error);
+    if (bonsError) {
+      console.error('Error in Supabase query:', bonsError);
       return getMockBons(search);
     }
 
+    // Get livreur IDs from bons
+    const livreurIds = bonsData.map((bon: any) => bon.livreur_id).filter(Boolean);
+
+    // Fetch livreurs data
+    const { data: livreursData, error: livreursError } = await supabase
+      .from('livreurs')
+      .select('id, nom')
+      .in('id', livreurIds);
+
+    if (livreursError) {
+      console.error('Error fetching livreurs:', livreursError);
+    }
+
+    // Create a map of livreur IDs to livreur names
+    const livreursMap = (livreursData || []).reduce((map: any, livreur: any) => {
+      map[livreur.id] = livreur.nom;
+      return map;
+    }, {});
+
     // Transform the data to match our frontend structure
-    return data.map((item: any) => ({
+    return bonsData.map((item: any) => ({
       id: item.id,
-      livreur: item.livreurs.nom,
-      livreur_id: item.livreurs.id,
+      livreur: livreursMap[item.livreur_id] || 'Livreur inconnu',
+      livreur_id: item.livreur_id,
       dateCreation: item.date_creation,
       nbColis: item.nb_colis,
       statut: item.statut,

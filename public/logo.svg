@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="90" fill="#3B82F6" />
+  
+  <!-- Inner Circle -->
+  <circle cx="100" cy="100" r="80" fill="#2563EB" />
+  
+  <!-- Package Icon -->
+  <rect x="60" y="70" width="80" height="60" rx="5" fill="white" />
+  
+  <!-- Package Top -->
+  <path d="M60 80 L100 60 L140 80 L140 85 L60 85 Z" fill="#DBEAFE" />
+  
+  <!-- Package Lines -->
+  <path d="M100 60 L100 130" stroke="#3B82F6" stroke-width="4" />
+  <path d="M80 85 L80 130" stroke="#3B82F6" stroke-width="2" />
+  <path d="M120 85 L120 130" stroke="#3B82F6" stroke-width="2" />
+  
+  <!-- Tracking Lines -->
+  <path d="M50 150 L150 150" stroke="white" stroke-width="6" stroke-linecap="round" />
+  <path d="M60 160 L140 160" stroke="white" stroke-width="6" stroke-linecap="round" />
+  <path d="M70 170 L130 170" stroke="white" stroke-width="6" stroke-linecap="round" />
+</svg>
