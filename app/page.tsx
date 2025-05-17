@@ -1,19 +1,30 @@
-import type React from "react"
+"use client"
+
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, PackageCheck, Truck, PackageX, Clock, Users, Building2 } from "lucide-react"
 
 export default function Dashboard() {
+  const [formattedDate, setFormattedDate] = useState<string>("");
+
+  useEffect(() => {
+    // Format date on client side only
+    setFormattedDate(
+      new Date().toLocaleDateString("fr-FR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, []);
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Tableau de bord</h1>
         <div className="text-sm text-muted-foreground">
-          {new Date().toLocaleDateString("fr-FR", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
+          {formattedDate}
         </div>
       </div>
 

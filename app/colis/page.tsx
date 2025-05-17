@@ -11,7 +11,7 @@ import { Package, Plus, Search, Loader2 } from "lucide-react"
 import { fetchColis, fetchLivreurs, Colis } from "@/lib/api"
 
 // Status badge component
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status }: { readonly status: string }) {
   let bgColor = "";
   let textColor = "";
 
@@ -82,7 +82,7 @@ export default function ColisPage() {
         setError(null);
       } catch (err: any) {
         console.error("Error loading data:", err);
-        setError(err.message || "Une erreur est survenue lors du chargement des données");
+        setError(err.message ?? "Une erreur est survenue lors du chargement des données");
       } finally {
         setLoading(false);
       }
@@ -223,7 +223,8 @@ export default function ColisPage() {
                         <StatusBadge status={item.statut} />
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {new Date(item.dateCreation).toLocaleDateString("fr-FR")}
+                        {/* Use a safer approach for date formatting */}
+                        {item.dateCreation ? new Date(item.dateCreation).toLocaleDateString("fr-FR") : ""}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{item.livreur}</TableCell>
                       <TableCell className="text-right">

@@ -650,10 +650,14 @@ const SidebarMenuSkeleton = React.forwardRef<
     showIcon?: boolean
   }
 >(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+  // Use a fixed width for SSR compatibility
+  const [width, setWidth] = React.useState("70%");
+
+  // Generate random width only on client-side after mount
+  React.useEffect(() => {
+    // Random width between 50 to 90%
+    setWidth(`${Math.floor(Math.random() * 40) + 50}%`);
+  }, []);
 
   return (
     <div

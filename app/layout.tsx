@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SidebarProvider } from "@/components/sidebar-provider"
 import { Sidebar } from "@/components/sidebar"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SidebarProvider>
             <div className="flex min-h-screen">
@@ -29,6 +30,7 @@ export default function RootLayout({
               <main className="flex-1 overflow-y-auto">{children}</main>
             </div>
           </SidebarProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
