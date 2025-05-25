@@ -29,6 +29,7 @@ export default function StatusPage() {
   // Filter states
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [actifFilter, setActifFilter] = useState("all")
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -376,10 +377,15 @@ export default function StatusPage() {
       // Filter by type
       const matchesType = typeFilter === "all" || status.type === typeFilter;
 
-      // Return true if both conditions are met
-      return matchesSearch && matchesType;
+      // Filter by actif status
+      const matchesActif = actifFilter === "all" ||
+        (actifFilter === "actif" && status.actif) ||
+        (actifFilter === "inactif" && !status.actif);
+
+      // Return true if all conditions are met
+      return matchesSearch && matchesType && matchesActif;
     });
-  }, [statuses, searchQuery, typeFilter]);
+  }, [statuses, searchQuery, typeFilter, actifFilter]);
 
   // Get total count
   const totalCount = filteredStatuses.length;
@@ -396,7 +402,7 @@ export default function StatusPage() {
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchQuery, typeFilter]);
+  }, [searchQuery, typeFilter, actifFilter]);
 
   // Check if the statuses table exists
   const tableDoesNotExist = statusError && statusError.includes("relation") && statusError.includes("does not exist")
@@ -452,7 +458,7 @@ export default function StatusPage() {
       ) : (
         <>
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Gestion des Statuts</h1>
+            <h1 className="text-2xl font-bold sm:text-xl">Gestion des Statuts</h1>
             <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Ajouter un statut
@@ -466,13 +472,14 @@ export default function StatusPage() {
             <Filter className="mr-2 h-5 w-5" />
             Filtres
           </div>
-          {(searchQuery || typeFilter !== "all") && (
+          {(searchQuery || typeFilter !== "all" || actifFilter !== "all") && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setSearchQuery("");
                 setTypeFilter("all");
+                setActifFilter("all");
               }}
             >
               <X className="mr-2 h-4 w-4" />
@@ -505,6 +512,18 @@ export default function StatusPage() {
                     {type.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full md:flex-1">
+            <Select value={actifFilter} onValueChange={setActifFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Statut d'activité" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="actif">Actifs seulement</SelectItem>
+                <SelectItem value="inactif">Inactifs seulement</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PackageX, Search, Calendar, User, Building, X, Filter } from "lucide-react"
+import { PackageX, Search, Calendar, User, Building, X, Filter, Eye } from "lucide-react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -172,10 +173,12 @@ export default function ColisRefusesPage() {
       <Filter className="mr-2 h-5 w-5" />
       Filtres
     </div>
-    <Button variant="outline" onClick={resetFilters} size="sm">
-      <X className="mr-2 h-4 w-4" />
-      Réinitialiser
-    </Button>
+    {(searchQuery || selectedClient !== "all" || selectedLivreur !== "all" || selectedMotif !== "all" || selectedDate) && (
+      <Button variant="outline" onClick={resetFilters} size="sm">
+        <X className="mr-2 h-4 w-4" />
+        Réinitialiser
+      </Button>
+    )}
   </div>
   <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
             <div className="w-full md:flex-1">
@@ -274,6 +277,7 @@ export default function ColisRefusesPage() {
                     <th className="py-2 px-4 text-left">Date de refus</th>
                     <th className="py-2 px-4 text-left">Motif</th>
                     <th className="py-2 px-4 text-left">Livreur</th>
+                    <th className="py-2 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -285,6 +289,14 @@ export default function ColisRefusesPage() {
                       <td className="py-2 px-4">{colis.date_refus}</td>
                       <td className="py-2 px-4">{colis.motif}</td>
                       <td className="py-2 px-4">{colis.livreur}</td>
+                      <td className="py-2 px-4 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/colis/${colis.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Voir
+                          </Link>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

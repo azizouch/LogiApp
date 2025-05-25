@@ -16,15 +16,15 @@ interface NotificationPanelProps {
 }
 
 export function NotificationPanel({ onClose }: NotificationPanelProps) {
-  const { 
-    notifications, 
-    unreadCount, 
-    loading, 
-    error, 
-    fetchNotifications, 
-    markAsRead, 
-    markAllAsRead, 
-    deleteNotification 
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
   } = useNotifications()
 
   // Fetch notifications when the panel opens
@@ -37,7 +37,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
     if (!isRead) {
       await markAsRead(id)
     }
-    
+
     if (link) {
       onClose()
     }
@@ -67,9 +67,9 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             Notifications
           </CardTitle>
           {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="h-8 text-xs"
               onClick={() => markAllAsRead()}
             >
@@ -79,7 +79,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="px-2 py-0 max-h-[60vh] overflow-y-auto">
         {loading ? (
           <div className="flex justify-center items-center py-8">
@@ -89,9 +89,9 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           <div className="text-center py-8 text-sm text-muted-foreground">
             <AlertCircle className="h-5 w-5 mx-auto mb-2 text-destructive" />
             <p>Erreur lors du chargement des notifications</p>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="mt-2"
               onClick={() => fetchNotifications()}
             >
@@ -103,27 +103,27 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             <p>Aucune notification</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {notifications.map((notification) => {
-              const NotificationWrapper = notification.link 
-                ? Link 
+          <div className="divide-y divide-border">
+            {notifications.map((notification, index) => {
+              const NotificationWrapper = notification.link
+                ? Link
                 : 'div';
-              
-              const wrapperProps = notification.link 
-                ? { href: notification.link } 
+
+              const wrapperProps = notification.link
+                ? { href: notification.link }
                 : {};
-                
+
               return (
                 <NotificationWrapper
                   key={notification.id}
                   {...wrapperProps}
                   className={cn(
-                    "block px-4 py-3 hover:bg-muted/50 rounded-md transition-colors relative",
+                    "block px-4 py-3 hover:bg-muted/50 transition-colors relative",
                     !notification.isRead && "bg-muted/30"
                   )}
                   onClick={() => handleNotificationClick(
-                    notification.id, 
-                    notification.isRead, 
+                    notification.id,
+                    notification.isRead,
                     notification.link
                   )}
                 >
@@ -157,7 +157,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.createdAt), { 
+                        {formatDistanceToNow(new Date(notification.createdAt), {
                           addSuffix: true,
                           locale: fr
                         })}
@@ -173,16 +173,28 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           </div>
         )}
       </CardContent>
-      
-      <CardFooter className="p-3 border-t flex justify-center">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs w-full"
-          onClick={onClose}
-        >
-          Fermer
-        </Button>
+
+      <CardFooter className="p-3 border-t">
+        <div className="flex w-full gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="text-xs flex-1"
+            asChild
+          >
+            <Link href="/dashboard/notifications">
+              Voir tout
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={onClose}
+          >
+            Fermer
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )

@@ -1,9 +1,13 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { FileText, Plus, Search, Download } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, Plus, Search, Download, Filter, X } from "lucide-react"
+import { useState } from "react"
 
 // Données fictives pour la démonstration
 const bons = [
@@ -45,30 +49,97 @@ const bons = [
 ]
 
 export default function BonsPage() {
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [livreurFilter, setLivreurFilter] = useState("all")
+
+  // Get unique livreurs for filter
+  const uniqueLivreurs = [...new Set(bons.map(bon => bon.livreur))]
+
+  // Filter bons based on current filters
+  const filteredBons = bons.filter(bon => {
+    const matchesSearch = searchTerm === "" ||
+      bon.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bon.livreur.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bon.statut.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus = statusFilter === "all" || bon.statut === statusFilter
+    const matchesLivreur = livreurFilter === "all" || bon.livreur === livreurFilter
+
+    return matchesSearch && matchesStatus && matchesLivreur
+  })
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setLivreurFilter("all")
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Bons de Distribution</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Bons de Distribution</h1>
         <Button>
           <Plus className="mr-2 h-4 w-4" /> Nouveau Bon
         </Button>
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
-            <div className="text-sm text-muted-foreground">
-              Rechercher un bon de distribution par numéro, livreur ou statut
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
+          </div>
+          {(searchTerm || statusFilter !== "all" || livreurFilter !== "all") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher un bon de distribution..."
-              className="pl-8 w-full"
-            />
+
+          <div className="w-full md:flex-1">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="En cours">En cours</SelectItem>
+                <SelectItem value="Complété">Complété</SelectItem>
+                <SelectItem value="Annulé">Annulé</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={livreurFilter} onValueChange={setLivreurFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Livreur" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les livreurs</SelectItem>
+                {uniqueLivreurs.map(livreur => (
+                  <SelectItem key={livreur} value={livreur}>{livreur}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -77,7 +148,7 @@ export default function BonsPage() {
         <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
             <CardTitle>Liste des Bons de Distribution</CardTitle>
-            <CardDescription className="mt-0">Total: {bons.length} bons trouvés</CardDescription>
+            <CardDescription className="mt-0">Total: {filteredBons.length} bons trouvés</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -93,7 +164,7 @@ export default function BonsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bons.map((bon) => (
+              {filteredBons.map((bon) => (
                 <TableRow key={bon.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center">

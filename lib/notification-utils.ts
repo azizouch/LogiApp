@@ -59,29 +59,61 @@ export async function createNotificationForUsers({
   link?: string
 }) {
   try {
-    // Create notifications for each user
-    const notifications = userIds.map(userId => ({
+    // Remove duplicate user IDs if any
+    const uniqueUserIds = [...new Set(userIds)];
+
+    // Check for existing similar notifications in the last minute to prevent duplicates
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+
+    // Get recent notifications for these users with similar content
+    const { data: recentNotifications } = await supabase
+      .from('notifications')
+      .select('user_id, title, message')
+      .in('user_id', uniqueUserIds)
+      .gt('created_at', oneMinuteAgo)
+      .order('created_at', { ascending: false });
+
+    // Filter out users who already have a similar notification
+    const usersToNotify = uniqueUserIds.filter(userId => {
+      if (!recentNotifications) return true;
+
+      // Check if this user already has a similar notification
+      return !recentNotifications.some(n =>
+        n.user_id === userId &&
+        n.title === title &&
+        n.message === message
+      );
+    });
+
+    // If no users to notify after filtering, return success
+    if (usersToNotify.length === 0) {
+      console.log('No new notifications to create - similar ones exist');
+      return { success: true, message: 'No new notifications needed' };
+    }
+
+    // Create notifications for each remaining user
+    const notifications = usersToNotify.map(userId => ({
       user_id: userId,
       title,
       message,
       type,
       link,
       is_read: false
-    }))
+    }));
 
     const { data, error } = await supabase
       .from('notifications')
-      .insert(notifications)
+      .insert(notifications);
 
     if (error) {
-      console.error('Error creating notifications for users:', error)
-      return { success: false, error }
+      console.error('Error creating notifications for users:', error);
+      return { success: false, error };
     }
 
-    return { success: true, data }
+    return { success: true, data };
   } catch (err) {
-    console.error('Error creating notifications for users:', err)
-    return { success: false, error: err }
+    console.error('Error creating notifications for users:', err);
+    return { success: false, error: err };
   }
 }
 
@@ -148,6 +180,29 @@ export async function createReclamationNotification({
   type?: NotificationType
 }) {
   try {
+    // Check for recent similar notifications to prevent duplicates
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+    const { data: recentNotifications, error: recentError } = await supabase
+      .from('notifications')
+      .select('id, message')
+      .eq('user_id', livreurId)
+      .gt('created_at', fiveMinutesAgo)
+      .order('created_at', { ascending: false })
+
+    if (!recentError && recentNotifications && recentNotifications.length > 0) {
+      // Check if there's a very similar message recently submitted
+      const similarNotification = recentNotifications.find(n =>
+        n.message.includes(colisId) &&
+        n.message.includes(message.substring(0, 10))
+      )
+
+      if (similarNotification) {
+        console.log('Preventing duplicate reclamation notification')
+        return { success: true, message: 'Duplicate notification prevented' }
+      }
+    }
+
     // Get the livreur details
     const { data: livreur, error: livreurError } = await supabase
       .from('utilisateurs')

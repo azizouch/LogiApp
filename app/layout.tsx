@@ -26,8 +26,6 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        {/* SweetAlert2 CDN */}
-        <Script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" strategy="beforeInteractive" />
         {/* Animate.css for animations */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
         {/* Custom styles for small alerts */}
@@ -54,6 +52,8 @@ export default function RootLayout({
         `}} />
       </head>
       <body className={inter.className} suppressHydrationWarning>
+        {/* SweetAlert2 CDN */}
+        <Script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" strategy="beforeInteractive" />
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
             <StatusProvider>

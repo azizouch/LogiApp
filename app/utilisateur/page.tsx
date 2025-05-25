@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Search, Plus, Edit, Trash, UserPlus, UserCog, Mail, Phone, Shield, CheckCircle, Loader2, ShieldCheck } from "lucide-react"
+import { User, Search, Plus, Edit, Trash, UserPlus, UserCog, Mail, Phone, Shield, CheckCircle, Loader2, ShieldCheck, AlertCircle, Filter, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { createClient } from '@supabase/supabase-js'
@@ -22,10 +22,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function UtilisateurPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [isAddUserOpen, setIsAddUserOpen] = useState(false)
   const [isEditUserOpen, setIsEditUserOpen] = useState(false)
   const [isRolesOpen, setIsRolesOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<Utilisateur | null>(null)
+  const [deletingUser, setDeletingUser] = useState<Utilisateur | null>(null)
   const [users, setUsers] = useState<Utilisateur[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -41,7 +45,11 @@ export default function UtilisateurPage() {
     telephone: '',
     role: 'Gestionnaire',
     mot_de_passe: '',
-    statut: 'Actif'
+    statut: 'Actif',
+    adresse: '',
+    ville: '',
+    vehicule: '',
+    zone: ''
   })
 
   // Fetch users from the database
@@ -96,13 +104,19 @@ export default function UtilisateurPage() {
 
   // Handle search and pagination
   useEffect(() => {
-    // Filter users based on search term
-    const filtered = users.filter(user =>
-      `${user.nom} ${user.prenom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.statut.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    // Filter users based on search term and filters
+    const filtered = users.filter(user => {
+      const matchesSearch = searchTerm === "" ||
+        `${user.nom} ${user.prenom}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.statut.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesRole = roleFilter === "all" || user.role === roleFilter
+      const matchesStatus = statusFilter === "all" || user.statut === statusFilter
+
+      return matchesSearch && matchesRole && matchesStatus
+    })
 
     // Update total count
     setTotalCount(filtered.length)
@@ -116,7 +130,14 @@ export default function UtilisateurPage() {
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
     setPaginatedUsers(filtered.slice(startIndex, endIndex))
-  }, [users, searchTerm, currentPage, pageSize])
+  }, [users, searchTerm, roleFilter, statusFilter, currentPage, pageSize])
+
+  // Reset filters
+  const resetFilters = () => {
+    setSearchTerm("")
+    setRoleFilter("all")
+    setStatusFilter("all")
+  }
 
   const handleEditUser = (user: Utilisateur) => {
     setCurrentUser(user)
@@ -127,7 +148,11 @@ export default function UtilisateurPage() {
       telephone: user.telephone || '',
       role: user.role,
       mot_de_passe: '',
-      statut: user.statut
+      statut: user.statut,
+      adresse: (user as any).adresse || '',
+      ville: (user as any).ville || '',
+      vehicule: (user as any).vehicule || '',
+      zone: (user as any).zone || ''
     })
     setIsEditUserOpen(true)
   }
@@ -139,6 +164,76 @@ export default function UtilisateurPage() {
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  // Validate for duplicates
+  const validateDuplicates = async (isEdit: boolean = false, currentUserId?: string) => {
+    // Check for duplicate email
+    const { data: existingEmail, error: emailError } = await supabase
+      .from('utilisateurs')
+      .select('id')
+      .eq('email', formData.email)
+      .neq('id', isEdit && currentUserId ? currentUserId : '')
+      .maybeSingle()
+
+    if (emailError) {
+      console.error('Error checking email:', emailError)
+    }
+
+    if (existingEmail) {
+      toast({
+        title: "Erreur de validation",
+        description: "Un utilisateur avec cet email existe déjà",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    // Check for duplicate phone number if provided
+    if (formData.telephone && formData.telephone.trim() !== '') {
+      const { data: existingPhone, error: phoneError } = await supabase
+        .from('utilisateurs')
+        .select('id')
+        .eq('telephone', formData.telephone)
+        .neq('id', isEdit && currentUserId ? currentUserId : '')
+        .maybeSingle()
+
+      if (phoneError) {
+        console.error('Error checking phone:', phoneError)
+      }
+
+      if (existingPhone) {
+        toast({
+          title: "Erreur de validation",
+          description: "Un utilisateur avec ce numéro de téléphone existe déjà",
+          variant: "destructive"
+        })
+        return false
+      }
+    }
+
+    // Check for duplicate password
+    const { data: existingPassword, error: passwordError } = await supabase
+      .from('utilisateurs')
+      .select('id')
+      .eq('mot_de_passe', formData.mot_de_passe)
+      .neq('id', isEdit && currentUserId ? currentUserId : '')
+      .maybeSingle()
+
+    if (passwordError) {
+      console.error('Error checking password:', passwordError)
+    }
+
+    if (existingPassword) {
+      toast({
+        title: "Erreur de validation",
+        description: "Ce mot de passe est déjà utilisé par un autre utilisateur",
+        variant: "destructive"
+      })
+      return false
+    }
+
+    return true
   }
 
   const handleAddUser = async () => {
@@ -161,17 +256,33 @@ export default function UtilisateurPage() {
         return
       }
 
+      // Validate for duplicates
+      const isValid = await validateDuplicates(false)
+      if (!isValid) {
+        return
+      }
+
+      const userData: any = {
+        nom: formData.nom,
+        prenom: formData.prenom,
+        email: formData.email,
+        telephone: formData.telephone || null,
+        role: formData.role as 'Admin' | 'Gestionnaire' | 'Livreur',
+        mot_de_passe: formData.mot_de_passe, // In a real app, this should be hashed
+        statut: formData.statut as 'Actif' | 'Inactif',
+        adresse: formData.adresse || null,
+        ville: formData.ville || null
+      }
+
+      // Add livreur-specific fields if role is Livreur
+      if (formData.role === 'Livreur') {
+        userData.vehicule = formData.vehicule || null
+        userData.zone = formData.zone || null
+      }
+
       const { data, error } = await supabase
         .from('utilisateurs')
-        .insert([{
-          nom: formData.nom,
-          prenom: formData.prenom,
-          email: formData.email,
-          telephone: formData.telephone,
-          role: formData.role as 'Admin' | 'Gestionnaire' | 'Livreur',
-          mot_de_passe: formData.mot_de_passe, // In a real app, this should be hashed
-          statut: formData.statut as 'Actif' | 'Inactif'
-        }])
+        .insert([userData])
         .select()
 
       if (error) {
@@ -187,7 +298,11 @@ export default function UtilisateurPage() {
         telephone: '',
         role: 'Gestionnaire',
         mot_de_passe: '',
-        statut: 'Actif'
+        statut: 'Actif',
+        adresse: '',
+        ville: '',
+        vehicule: '',
+        zone: ''
       })
 
       toast({
@@ -217,13 +332,31 @@ export default function UtilisateurPage() {
         return
       }
 
+      // Validate for duplicates (excluding current user)
+      const isValid = await validateDuplicates(true, currentUser.id)
+      if (!isValid) {
+        return
+      }
+
       const updateData: any = {
         nom: formData.nom,
         prenom: formData.prenom,
         email: formData.email,
-        telephone: formData.telephone,
+        telephone: formData.telephone || null,
         role: formData.role as 'Admin' | 'Gestionnaire' | 'Livreur',
-        statut: formData.statut as 'Actif' | 'Inactif'
+        statut: formData.statut as 'Actif' | 'Inactif',
+        adresse: formData.adresse || null,
+        ville: formData.ville || null
+      }
+
+      // Add livreur-specific fields if role is Livreur
+      if (formData.role === 'Livreur') {
+        updateData.vehicule = formData.vehicule || null
+        updateData.zone = formData.zone || null
+      } else {
+        // Clear livreur fields if role is not Livreur
+        updateData.vehicule = null
+        updateData.zone = null
       }
 
       // Only update password if provided
@@ -259,20 +392,27 @@ export default function UtilisateurPage() {
     }
   }
 
-  const handleDeleteUser = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) return
+  const handleDeleteClick = (user: Utilisateur) => {
+    setDeletingUser(user)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return
 
     try {
       const { error } = await supabase
         .from('utilisateurs')
         .delete()
-        .eq('id', id)
+        .eq('id', deletingUser.id)
 
       if (error) {
         throw error
       }
 
-      setUsers(prev => prev.filter(user => user.id !== id))
+      setUsers(prev => prev.filter(user => user.id !== deletingUser.id))
+      setDeleteDialogOpen(false)
+      setDeletingUser(null)
 
       toast({
         title: "Succès",
@@ -365,6 +505,58 @@ export default function UtilisateurPage() {
         </Select>
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="adresse" className="text-right">
+          Adresse
+        </Label>
+        <Input
+          id="adresse"
+          value={formData.adresse}
+          onChange={handleInputChange}
+          className="col-span-3"
+          placeholder="Adresse complète"
+        />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="ville" className="text-right">
+          Ville
+        </Label>
+        <Input
+          id="ville"
+          value={formData.ville}
+          onChange={handleInputChange}
+          className="col-span-3"
+          placeholder="Ville"
+        />
+      </div>
+      {formData.role === 'Livreur' && (
+        <>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="vehicule" className="text-right">
+              Véhicule
+            </Label>
+            <Input
+              id="vehicule"
+              value={formData.vehicule}
+              onChange={handleInputChange}
+              className="col-span-3"
+              placeholder="Type de véhicule"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="zone" className="text-right">
+              Zone
+            </Label>
+            <Input
+              id="zone"
+              value={formData.zone}
+              onChange={handleInputChange}
+              className="col-span-3"
+              placeholder="Zone de livraison"
+            />
+          </div>
+        </>
+      )}
+      <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="mot_de_passe" className="text-right">
           {isEdit ? "Nouveau mot de passe" : "Mot de passe"}
         </Label>
@@ -396,7 +588,7 @@ export default function UtilisateurPage() {
     <div className="container mx-auto p-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Gestion des Utilisateurs</h1>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-2xl">Gestion des Utilisateurs</h1>
           <p className="text-muted-foreground mt-1">
             Gérez les utilisateurs de la plateforme
           </p>
@@ -525,19 +717,58 @@ export default function UtilisateurPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Recherchez des utilisateurs par nom, email, rôle ou statut"
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          {(searchTerm || roleFilter !== "all" || statusFilter !== "all") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Rôle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les rôles</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+                <SelectItem value="Gestionnaire">Gestionnaire</SelectItem>
+                <SelectItem value="Livreur">Livreur</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="Actif">Actifs seulement</SelectItem>
+                <SelectItem value="Inactif">Inactifs seulement</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -603,7 +834,7 @@ export default function UtilisateurPage() {
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Modifier</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteUser(user.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClick(user)}>
                           <Trash className="h-4 w-4" />
                           <span className="sr-only">Supprimer</span>
                         </Button>
@@ -648,6 +879,36 @@ export default function UtilisateurPage() {
             </Button>
             <Button type="submit" onClick={handleUpdateUser}>
               Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-500">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Supprimer l'utilisateur
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          {deletingUser && (
+            <div className="py-4">
+              <p className="text-sm">
+                Vous êtes sur le point de supprimer l'utilisateur <strong>{deletingUser.nom} {deletingUser.prenom}</strong>.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={loading}>
+              {loading ? 'Suppression...' : 'Supprimer'}
             </Button>
           </DialogFooter>
         </DialogContent>

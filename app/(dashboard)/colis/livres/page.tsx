@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PackageCheck, Search, Calendar, User, Building, X, Filter } from "lucide-react"
+import { PackageCheck, Search, Calendar, User, Building, X, Filter, Eye } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { DatePicker } from "@/components/ui/date-picker"
 import { DataTablePagination } from "@/components/ui/data-table-pagination"
+import Link from "next/link"
 
 export default function ColisLivresPage() {
   const [colisLivres, setColisLivres] = useState<any[]>([])
@@ -149,7 +150,7 @@ export default function ColisLivresPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Colis Livrés</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Colis Livrés</h1>
       </div>
 
       <div className="mb-6">
@@ -158,10 +159,12 @@ export default function ColisLivresPage() {
             <Filter className="mr-2 h-5 w-5" />
             Filtres
           </div>
-          <Button variant="outline" onClick={resetFilters} size="sm">
-            <X className="mr-2 h-4 w-4" />
-            Réinitialiser
-          </Button>
+          {(searchQuery || selectedClient !== "all" || selectedLivreur !== "all" || selectedDate) && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
@@ -246,6 +249,7 @@ export default function ColisLivresPage() {
                     <th className="py-2 px-4 text-left">Adresse</th>
                     <th className="py-2 px-4 text-left">Date de livraison</th>
                     <th className="py-2 px-4 text-left">Livreur</th>
+                    <th className="py-2 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -256,6 +260,14 @@ export default function ColisLivresPage() {
                       <td className="py-2 px-4">{colis.adresse}</td>
                       <td className="py-2 px-4">{colis.date_livraison}</td>
                       <td className="py-2 px-4">{colis.livreur}</td>
+                      <td className="py-2 px-4 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/colis/${colis.id}`}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Voir
+                          </Link>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

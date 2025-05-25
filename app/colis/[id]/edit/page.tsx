@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, Save } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Plus } from 'lucide-react';
 import { fetchClients, fetchEntreprises, fetchLivreurs } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -29,6 +30,18 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
   const [livreurs, setLivreurs] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<any[]>([]);
   const [notFound, setNotFound] = useState(false);
+
+  // New client dialog state
+  const [showNewClientDialog, setShowNewClientDialog] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    id: `CLI-${String(Math.floor(Math.random() * 900) + 100)}`,
+    nom: '',
+    telephone: '',
+    email: '',
+    adresse: '',
+    ville: '',
+  });
+  const [creatingClient, setCreatingClient] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -122,6 +135,85 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Handle new client input changes
+  const handleNewClientChange = (field: string, value: string) => {
+    setNewClientData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handle creating a new client
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newClientData.nom.trim()) {
+      toast({
+        title: "Erreur de validation",
+        description: "Le nom du client est requis",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingClient(true);
+
+    try {
+      // Prepare data for submission
+      const clientData = {
+        id: newClientData.id,
+        nom: newClientData.nom,
+        telephone: newClientData.telephone || null,
+        email: newClientData.email || null,
+        adresse: newClientData.adresse || null,
+        ville: newClientData.ville || null,
+        created_at: new Date().toISOString(),
+      };
+
+      // Insert into Supabase
+      const { data, error } = await supabase
+        .from('clients')
+        .insert([clientData])
+        .select();
+
+      if (error) {
+        throw error;
+      }
+
+      // Show success message
+      toast({
+        title: "Client créé avec succès",
+        description: `Le client ${newClientData.nom} a été créé.`,
+      });
+
+      // Add the new client to the clients list
+      const newClient = data[0];
+      const updatedClients = [...clients, newClient];
+      setClients(updatedClients);
+
+      // Select the new client in the form
+      setFormData(prev => ({ ...prev, client_id: newClient.id }));
+
+      // Reset new client form and close dialog
+      setNewClientData({
+        id: `CLI-${String(Math.floor(Math.random() * 900) + 100)}`,
+        nom: '',
+        telephone: '',
+        email: '',
+        adresse: '',
+        ville: '',
+      });
+      setShowNewClientDialog(false);
+
+    } catch (error: any) {
+      console.error('Error creating client:', error);
+      toast({
+        title: "Erreur lors de la création du client",
+        description: error.message || "Une erreur est survenue",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingClient(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +233,7 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
 
       // Prepare data for submission
       const colisData = {
+        id: formData.id, // Include the ID in case it was changed
         client_id: formData.client_id,
         entreprise_id: formData.entreprise_id === 'none' ? null : formData.entreprise_id,
         livreur_id: formData.livreur_id === 'none' ? null : formData.livreur_id,
@@ -343,7 +436,8 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
                     <Input
                       id="id"
                       value={formData.id}
-                      disabled
+                      onChange={(e) => handleChange('id', e.target.value)}
+                      placeholder="ID du colis"
                     />
                   </div>
 
@@ -417,7 +511,19 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
 
                   {/* Client */}
                   <div className="space-y-2">
-                    <Label htmlFor="client">Client</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="client">
+                        Client <span className="text-red-500">*</span>
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowNewClientDialog(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Nouveau Client
+                      </Button>
+                    </div>
                     <Select
                       value={formData.client_id}
                       onValueChange={(value) => handleChange('client_id', value)}
@@ -516,6 +622,110 @@ export default function EditColisPage({ params }: { params: { id: string } }) {
           </CardFooter>
         </Card>
       </form>
+
+      {/* Dialog for creating a new client */}
+      <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Ajouter un nouveau client</DialogTitle>
+            <DialogDescription>
+              Remplissez les informations pour créer un nouveau client.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateClient} className="space-y-4 py-4">
+            <div className="grid grid-cols-1 gap-4">
+              {/* ID Client */}
+              <div className="space-y-2">
+                <Label htmlFor="client-id">ID Client</Label>
+                <Input
+                  id="client-id"
+                  value={newClientData.id}
+                  onChange={(e) => handleNewClientChange('id', e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  ID généré automatiquement (modifiable)
+                </p>
+              </div>
+
+              {/* Nom Client */}
+              <div className="space-y-2">
+                <Label htmlFor="client-nom">Nom <span className="text-red-500">*</span></Label>
+                <Input
+                  id="client-nom"
+                  value={newClientData.nom}
+                  onChange={(e) => handleNewClientChange('nom', e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Téléphone */}
+              <div className="space-y-2">
+                <Label htmlFor="client-telephone">Téléphone</Label>
+                <Input
+                  id="client-telephone"
+                  value={newClientData.telephone}
+                  onChange={(e) => handleNewClientChange('telephone', e.target.value)}
+                />
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="client-email">Email</Label>
+                <Input
+                  id="client-email"
+                  type="email"
+                  value={newClientData.email}
+                  onChange={(e) => handleNewClientChange('email', e.target.value)}
+                />
+              </div>
+
+              {/* Adresse */}
+              <div className="space-y-2">
+                <Label htmlFor="client-adresse">Adresse</Label>
+                <Input
+                  id="client-adresse"
+                  value={newClientData.adresse}
+                  onChange={(e) => handleNewClientChange('adresse', e.target.value)}
+                />
+              </div>
+
+              {/* Ville */}
+              <div className="space-y-2">
+                <Label htmlFor="client-ville">Ville</Label>
+                <Input
+                  id="client-ville"
+                  value={newClientData.ville}
+                  onChange={(e) => handleNewClientChange('ville', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowNewClientDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={creatingClient}>
+                {creatingClient ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Création...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Créer Client
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

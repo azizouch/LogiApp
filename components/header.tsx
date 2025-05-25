@@ -341,7 +341,7 @@ export function Header() {
       {/* User info and notifications - right aligned */}
       <div className="flex items-center gap-4 flex-shrink-0 z-10">
         {/* Notifications */}
-        <NotificationBell className="relative rounded-full border h-8 w-8" />
+        <NotificationBell className="relative rounded-full border h-8 w-8 ml-2" />
 
         {/* User profile - Desktop Dropdown / Mobile Button */}
         <div>

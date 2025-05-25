@@ -76,33 +76,7 @@ export default function ListeColisPage() {
         if (statusesError) throw statusesError
         setStatuses(statusesData || [])
 
-        // Build base query for count and data
-        let baseQuery = supabase.from('colis')
-
-        // Apply filters
-        if (statusFilter !== "all") {
-          const statusName = getStatusById(statusFilter)
-          if (statusName) {
-            baseQuery = baseQuery.eq('statut', statusName)
-          }
-        }
-
-        if (livreurFilter !== "all") {
-          baseQuery = baseQuery.eq('livreur_id', livreurFilter)
-        }
-
-        if (searchQuery) {
-          baseQuery = baseQuery.or(`id.ilike.%${searchQuery}%,client_id.ilike.%${searchQuery}%,entreprise_id.ilike.%${searchQuery}%`)
-        }
-
-        // Get total count first
-        const { count, error: countError } = await baseQuery
-          .select('id', { count: 'exact', head: true })
-
-        if (countError) throw countError
-        setTotalCount(count || 0)
-
-        // Now get paginated data
+        // Get all data first, then filter client-side
         let dataQuery = supabase.from('colis').select(`
           id,
           client:client_id(id, nom),
@@ -112,7 +86,7 @@ export default function ListeColisPage() {
           date_creation
         `)
 
-        // Apply the same filters
+        // Apply database filters (non-search filters)
         if (statusFilter !== "all") {
           const statusName = getStatusById(statusFilter)
           if (statusName) {
@@ -124,10 +98,6 @@ export default function ListeColisPage() {
           dataQuery = dataQuery.eq('livreur_id', livreurFilter)
         }
 
-        if (searchQuery) {
-          dataQuery = dataQuery.or(`id.ilike.%${searchQuery}%,client.nom.ilike.%${searchQuery}%,entreprise.nom.ilike.%${searchQuery}%`)
-        }
-
         // Apply sorting
         switch (sortOption) {
           case 'recent':
@@ -136,23 +106,17 @@ export default function ListeColisPage() {
           case 'ancien':
             dataQuery = dataQuery.order('date_creation', { ascending: true })
             break
-          case 'client':
-            dataQuery = dataQuery.order('client(nom)', { ascending: true })
+          default:
+            dataQuery = dataQuery.order('date_creation', { ascending: false })
             break
         }
-
-        // Apply pagination
-        const from = (currentPage - 1) * pageSize
-        const to = from + pageSize - 1
-
-        dataQuery = dataQuery.range(from, to)
 
         const { data: colisData, error: colisError } = await dataQuery
 
         if (colisError) throw colisError
 
         // Format the data
-        const formattedColis = (colisData || []).map(item => ({
+        let formattedColis = (colisData || []).map(item => ({
           id: item.id,
           client: item.client?.nom || 'N/A',
           entreprise: item.entreprise?.nom || 'N/A',
@@ -161,7 +125,31 @@ export default function ListeColisPage() {
           dateCreation: item.date_creation
         }))
 
-        setColis(formattedColis)
+        // Apply client-side search filtering
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase()
+          formattedColis = formattedColis.filter(item =>
+            item.id.toLowerCase().includes(query) ||
+            item.client.toLowerCase().includes(query) ||
+            item.entreprise.toLowerCase().includes(query) ||
+            item.livreur.toLowerCase().includes(query)
+          )
+        }
+
+        // Apply client-side sorting for client names
+        if (sortOption === 'client') {
+          formattedColis.sort((a, b) => a.client.localeCompare(b.client))
+        }
+
+        // Set total count after filtering
+        setTotalCount(formattedColis.length)
+
+        // Apply pagination client-side
+        const from = (currentPage - 1) * pageSize
+        const to = from + pageSize
+        const paginatedColis = formattedColis.slice(from, to)
+
+        setColis(paginatedColis)
         setError(null)
       } catch (err: any) {
         console.error("Error loading data:", err)
@@ -190,7 +178,7 @@ export default function ListeColisPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Liste des Colis</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Liste des Colis</h1>
         <Button asChild>
           <Link href="/colis/nouveau">
             <Plus className="mr-2 h-4 w-4" />
@@ -205,10 +193,12 @@ export default function ListeColisPage() {
             <Filter className="mr-2 h-5 w-5" />
             Filtres
           </div>
-          <Button variant="outline" onClick={resetFilters} size="sm">
-            <X className="mr-2 h-4 w-4" />
-            Réinitialiser
-          </Button>
+          {(searchQuery || statusFilter !== "all" || livreurFilter !== "all" || sortOption !== "recent") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
@@ -277,7 +267,7 @@ export default function ListeColisPage() {
           <div className="flex justify-between items-center">
             <CardTitle>Liste des Colis</CardTitle>
             <div className="text-sm text-muted-foreground">
-              {loading ? "Chargement..." : `Total: ${colis.length} colis trouvés`}
+              {loading ? "Chargement..." : `Total: ${totalCount} colis trouvés`}
             </div>
           </div>
         </CardHeader>

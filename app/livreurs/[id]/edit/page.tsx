@@ -92,7 +92,7 @@ export default function EditLivreurPage({ params }: { params: { id: string } }) 
   };
 
   // Validate form
-  const validateForm = () => {
+  const validateForm = async () => {
     if (!formData.nom.trim()) {
       toast({
         title: "Erreur de validation",
@@ -101,6 +101,53 @@ export default function EditLivreurPage({ params }: { params: { id: string } }) 
       });
       return false;
     }
+
+    // Check for duplicate email (if email is provided and changed)
+    if (formData.email && formData.email.trim() !== '') {
+      const { data: existingEmail, error: emailError } = await supabase
+        .from('utilisateurs')
+        .select('id')
+        .eq('email', formData.email)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (emailError) {
+        console.error('Error checking email:', emailError);
+      }
+
+      if (existingEmail) {
+        toast({
+          title: "Erreur de validation",
+          description: "Un utilisateur avec cet email existe déjà",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
+    // Check for duplicate phone number (if phone is provided and changed)
+    if (formData.telephone && formData.telephone.trim() !== '') {
+      const { data: existingPhone, error: phoneError } = await supabase
+        .from('utilisateurs')
+        .select('id')
+        .eq('telephone', formData.telephone)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (phoneError) {
+        console.error('Error checking phone:', phoneError);
+      }
+
+      if (existingPhone) {
+        toast({
+          title: "Erreur de validation",
+          description: "Un utilisateur avec ce numéro de téléphone existe déjà",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -108,7 +155,7 @@ export default function EditLivreurPage({ params }: { params: { id: string } }) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!(await validateForm())) {
       return;
     }
 
@@ -227,7 +274,8 @@ export default function EditLivreurPage({ params }: { params: { id: string } }) 
                     <Input
                       id="id"
                       value={formData.id}
-                      disabled
+                      onChange={(e) => handleChange('id', e.target.value)}
+                      placeholder="ID du livreur"
                     />
                   </div>
 

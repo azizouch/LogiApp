@@ -29,6 +29,7 @@ import {
   Receipt,
   RotateCcw,
   UserCircle,
+  Bell,
   LucideIcon
 } from "lucide-react"
 
@@ -175,6 +176,12 @@ const navItems: NavItem[] = [
     href: "/livreurs",
     icon: Truck,
     roles: ["Admin", "Gestionnaire"], // Only Admin and Gestionnaire can access livreurs
+  },
+  {
+    title: "Notifications",
+    href: "/notifications",
+    icon: Bell,
+    roles: ["Admin", "Gestionnaire", "Livreur"], // All roles can access notifications
   },
   {
     title: "Utilisateurs",

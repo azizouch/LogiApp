@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { Users, Plus, Search, Phone, Mail, MapPin, Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Users, Plus, Search, Phone, Mail, MapPin, Loader2, Filter, X } from "lucide-react"
 import { fetchClients, Client } from "@/lib/api"
 import { DataTablePagination } from "@/components/ui/data-table-pagination"
 
@@ -15,19 +16,34 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [villeFilter, setVilleFilter] = useState("all")
+  const [entrepriseFilter, setEntrepriseFilter] = useState("all")
   const [totalCount, setTotalCount] = useState(0)
+
+  // Available filter options
+  const [availableVilles, setAvailableVilles] = useState<string[]>([])
+  const [availableEntreprises, setAvailableEntreprises] = useState<string[]>([])
+  const [allClients, setAllClients] = useState<Client[]>([])
+  const [filteredClients, setFilteredClients] = useState<Client[]>([])
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
+  // Load all clients initially
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
-        const result = await fetchClients(searchQuery || undefined, currentPage, pageSize)
-        setClients(result.data)
-        setTotalCount(result.count || 0)
+        const result = await fetchClients(undefined, 1, 1000) // Get all clients
+        setAllClients(result.data)
+
+        // Extract unique values for filters
+        const villes = Array.from(new Set(result.data.map(client => client.ville).filter(Boolean)))
+        const entreprises = Array.from(new Set(result.data.map(client => client.entreprise).filter(Boolean)))
+
+        setAvailableVilles(villes)
+        setAvailableEntreprises(entreprises)
         setError(null)
       } catch (err: any) {
         console.error("Error loading clients:", err)
@@ -38,12 +54,60 @@ export default function ClientsPage() {
     }
 
     loadData()
-  }, [searchQuery, currentPage, pageSize])
+  }, [])
+
+  // Apply filters whenever filter states change
+  useEffect(() => {
+    let filtered = [...allClients]
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(client =>
+        client.nom.toLowerCase().includes(query) ||
+        client.telephone?.toLowerCase().includes(query) ||
+        client.email?.toLowerCase().includes(query) ||
+        client.adresse?.toLowerCase().includes(query)
+      )
+    }
+
+    // Apply ville filter
+    if (villeFilter && villeFilter !== "all") {
+      filtered = filtered.filter(client => client.ville === villeFilter)
+    }
+
+    // Apply entreprise filter
+    if (entrepriseFilter && entrepriseFilter !== "all") {
+      filtered = filtered.filter(client => client.entreprise === entrepriseFilter)
+    }
+
+    setFilteredClients(filtered)
+    setTotalCount(filtered.length)
+
+    // Reset to first page when filters change
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }, [allClients, searchQuery, villeFilter, entrepriseFilter])
+
+  // Apply pagination
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    setClients(filteredClients.slice(startIndex, endIndex))
+  }, [filteredClients, currentPage, pageSize])
+
+  // Reset filters
+  const resetFilters = () => {
+    setSearchQuery('')
+    setVilleFilter('all')
+    setEntrepriseFilter('all')
+  }
 
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gestion des Clients</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Gestion des Clients</h1>
         <Button asChild>
           <Link href="/clients/nouveau">
             <Plus className="mr-2 h-4 w-4" /> Nouveau Client
@@ -52,19 +116,59 @@ export default function ClientsPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher un client par nom, téléphone ou entreprise"
-              className="pl-8 w-full"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          {(searchQuery || villeFilter !== "all" || entrepriseFilter !== "all") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={villeFilter} onValueChange={setVilleFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Toutes les villes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les villes</SelectItem>
+                {availableVilles.map(ville => (
+                  <SelectItem key={ville} value={ville}>{ville}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={entrepriseFilter} onValueChange={setEntrepriseFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Toutes les entreprises" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les entreprises</SelectItem>
+                {availableEntreprises.map(entreprise => (
+                  <SelectItem key={entreprise} value={entreprise}>{entreprise}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

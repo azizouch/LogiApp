@@ -203,7 +203,7 @@ export default function MesColisPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Mes Colis</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Mes Colis</h1>
         <div className="text-sm text-muted-foreground">
           {loading ? "Chargement..." : `Total: ${colis.length} colis trouvés`}
         </div>
@@ -215,10 +215,12 @@ export default function MesColisPage() {
       <Filter className="mr-2 h-5 w-5" />
       Filtres
     </div>
-    <Button variant="outline" onClick={resetFilters} size="sm">
-      <X className="mr-2 h-4 w-4" />
-      Réinitialiser
-    </Button>
+    {(searchQuery || statusFilter !== "all" || sortOption !== "recent" || dateRange !== "all") && (
+      <Button variant="outline" onClick={resetFilters} size="sm">
+        <X className="mr-2 h-4 w-4" />
+        Réinitialiser
+      </Button>
+    )}
   </div>
   <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
             <div className="w-full md:flex-1">

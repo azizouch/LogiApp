@@ -6,16 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Truck, Plus, Search, Phone, Mail, FileText, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Truck, Plus, Search, Phone, Mail, FileText, Loader2, Filter, X, UserPlus } from "lucide-react";
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { AssignerModal } from "@/components/assigner-modal";
 
 export default function LivreursPage() {
   const [loading, setLoading] = useState(true);
   const [livreurs, setLivreurs] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [zoneFilter, setZoneFilter] = useState("all");
+  const [vehiculeFilter, setVehiculeFilter] = useState("all");
+  const [colisCountFilter, setColisCountFilter] = useState("all");
   const [filteredLivreurs, setFilteredLivreurs] = useState<any[]>([]);
+  const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
+  const [selectedLivreur, setSelectedLivreur] = useState<any>(null);
+
+  // Available filter options
+  const [availableZones, setAvailableZones] = useState<string[]>([]);
+  const [availableVehicules, setAvailableVehicules] = useState<string[]>([]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,7 +80,13 @@ export default function LivreursPage() {
         }));
 
         setLivreurs(livreursWithCounts);
-        setFilteredLivreurs(livreursWithCounts);
+
+        // Extract unique values for filters
+        const zones = Array.from(new Set(livreursWithCounts.map(livreur => livreur.zone).filter(Boolean)));
+        const vehicules = Array.from(new Set(livreursWithCounts.map(livreur => livreur.vehicule).filter(Boolean)));
+
+        setAvailableZones(zones);
+        setAvailableVehicules(vehicules);
       } catch (error: any) {
         console.error('Error loading livreurs:', error);
         toast({
@@ -85,25 +102,55 @@ export default function LivreursPage() {
     loadData();
   }, []);
 
-  // Handle search
+  // Handle search and filters
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredLivreurs(livreurs);
-    } else {
+    let filtered = [...livreurs];
+
+    // Apply search filter
+    if (searchTerm.trim() !== '') {
       const term = searchTerm.toLowerCase();
-      const filtered = livreurs.filter(livreur =>
+      filtered = filtered.filter(livreur =>
         livreur.nom.toLowerCase().includes(term) ||
         (livreur.telephone && livreur.telephone.toLowerCase().includes(term)) ||
         (livreur.email && livreur.email.toLowerCase().includes(term))
       );
-      setFilteredLivreurs(filtered);
     }
 
-    // Reset to first page when search changes
-    if (searchTerm && currentPage !== 1) {
+    // Apply zone filter
+    if (zoneFilter && zoneFilter !== "all") {
+      filtered = filtered.filter(livreur => livreur.zone === zoneFilter);
+    }
+
+    // Apply vehicule filter
+    if (vehiculeFilter && vehiculeFilter !== "all") {
+      filtered = filtered.filter(livreur => livreur.vehicule === vehiculeFilter);
+    }
+
+    // Apply colis count filter
+    if (colisCountFilter && colisCountFilter !== "all") {
+      switch (colisCountFilter) {
+        case "none":
+          filtered = filtered.filter(livreur => livreur.nbColis === 0);
+          break;
+        case "low":
+          filtered = filtered.filter(livreur => livreur.nbColis > 0 && livreur.nbColis <= 5);
+          break;
+        case "medium":
+          filtered = filtered.filter(livreur => livreur.nbColis > 5 && livreur.nbColis <= 20);
+          break;
+        case "high":
+          filtered = filtered.filter(livreur => livreur.nbColis > 20);
+          break;
+      }
+    }
+
+    setFilteredLivreurs(filtered);
+
+    // Reset to first page when filters change
+    if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchTerm, livreurs, currentPage]);
+  }, [searchTerm, zoneFilter, vehiculeFilter, colisCountFilter, livreurs]);
 
   // Update total count and apply pagination
   useEffect(() => {
@@ -114,10 +161,30 @@ export default function LivreursPage() {
     setPaginatedLivreurs(filteredLivreurs.slice(startIndex, endIndex));
   }, [filteredLivreurs, currentPage, pageSize]);
 
+  // Reset filters
+  const resetFilters = () => {
+    setSearchTerm('');
+    setZoneFilter('all');
+    setVehiculeFilter('all');
+    setColisCountFilter('all');
+  };
+
+  // Handle assigner click
+  const handleAssignerClick = (livreur: any) => {
+    setSelectedLivreur(livreur);
+    setIsAssignerModalOpen(true);
+  };
+
+  // Function to shorten UUID for display
+  const shortenId = (id: string) => {
+    if (!id) return 'N/A';
+    return id.length > 8 ? `${id.substring(0, 8)}...` : id;
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gestion des Livreurs</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Gestion des Livreurs</h1>
         <Button asChild>
           <Link href="/livreurs/nouveau">
             <Plus className="mr-2 h-4 w-4" /> Nouveau Livreur
@@ -126,19 +193,74 @@ export default function LivreursPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher un livreur par nom ou numéro de téléphone"
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          {(searchTerm || zoneFilter !== "all" || vehiculeFilter !== "all" || colisCountFilter !== "all") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={zoneFilter} onValueChange={setZoneFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Toutes les zones" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les zones</SelectItem>
+                {availableZones.map(zone => (
+                  <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={vehiculeFilter} onValueChange={setVehiculeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tous les véhicules" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les véhicules</SelectItem>
+                {availableVehicules.map(vehicule => (
+                  <SelectItem key={vehicule} value={vehicule}>{vehicule}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={colisCountFilter} onValueChange={setColisCountFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Nombre de colis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les nombres</SelectItem>
+                <SelectItem value="none">Aucun colis (0)</SelectItem>
+                <SelectItem value="low">Peu de colis (1-5)</SelectItem>
+                <SelectItem value="medium">Moyen (6-20)</SelectItem>
+                <SelectItem value="high">Beaucoup (20+)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -173,6 +295,7 @@ export default function LivreursPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>ID</TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead className="hidden md:table-cell">Activité</TableHead>
@@ -182,6 +305,9 @@ export default function LivreursPage() {
                 <TableBody>
                   {paginatedLivreurs.map((livreur) => (
                   <TableRow key={livreur.id}>
+                    <TableCell className="font-medium text-sm text-muted-foreground">
+                      <span title={livreur.id}>{shortenId(livreur.id)}</span>
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center">
                         <Truck className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -223,10 +349,13 @@ export default function LivreursPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/colis/nouveau?livreur=${livreur.id}`}>
-                            Assigner
-                          </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAssignerClick(livreur)}
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Assigner
                         </Button>
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/livreurs/${livreur.id}`}>Détails</Link>
@@ -258,6 +387,23 @@ export default function LivreursPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Assigner Modal */}
+      {selectedLivreur && (
+        <AssignerModal
+          isOpen={isAssignerModalOpen}
+          onClose={() => {
+            setIsAssignerModalOpen(false);
+            setSelectedLivreur(null);
+          }}
+          livreurId={selectedLivreur.id}
+          livreurName={selectedLivreur.nom}
+          onSuccess={() => {
+            // Refresh the data when a colis is assigned
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

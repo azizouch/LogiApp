@@ -5,10 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Search, Plus, Edit, Trash } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, Search, Plus, Edit, Trash, Filter, X, Calendar } from "lucide-react"
 
 export default function BonsPaiementPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [dateFilter, setDateFilter] = useState("")
 
   // Dummy data for demonstration
   const bonsPaiement = [
@@ -19,17 +22,30 @@ export default function BonsPaiementPage() {
     { id: "BP-2025-005", date: "19/04/2025", client: "Entreprise DEF", montant: "1100.25", statut: "Payé" },
   ]
 
-  const filteredBons = bonsPaiement.filter(bon =>
-    bon.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bon.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bon.statut.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredBons = bonsPaiement.filter(bon => {
+    const matchesSearch = searchTerm === "" ||
+      bon.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bon.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bon.statut.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus = statusFilter === "all" || bon.statut === statusFilter
+    const matchesDate = dateFilter === "" || bon.date.includes(dateFilter)
+
+    return matchesSearch && matchesStatus && matchesDate
+  })
+
+  // Reset all filters
+  const resetFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setDateFilter("")
+  }
 
   return (
     <div className="container mx-auto p-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bons de paiement</h1>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-2xl">Bons de paiement</h1>
           <p className="text-muted-foreground mt-1">
             Gérez tous les bons de paiement de vos clients
           </p>
@@ -41,19 +57,57 @@ export default function BonsPaiementPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Recherchez des bons de paiement par ID, client ou statut"
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          {(searchTerm || statusFilter !== "all" || dateFilter) && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="Payé">Payé</SelectItem>
+                <SelectItem value="En attente">En attente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                placeholder="Date"
+                className="pl-8"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </div>

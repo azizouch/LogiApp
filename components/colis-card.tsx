@@ -26,6 +26,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/components/ui/use-toast'
 import { supabase } from '@/lib/supabase'
 import { useStatus } from '@/contexts/status-context'
+import { createReclamationNotification } from '@/lib/notification-utils'
+import { useAuth } from '@/contexts/auth-context'
 
 interface ColisCardProps {
   id: string
@@ -68,8 +70,11 @@ export function ColisCard({
     return contextGetStatusColor(status)
   }
 
+  // Get the current user
+  const { user } = useAuth()
+
   // Function to handle sending reclamation
-  const handleSendReclamation = () => {
+  const handleSendReclamation = async () => {
     if (!reclamationText.trim()) {
       toast({
         title: "Erreur",
@@ -79,16 +84,56 @@ export function ColisCard({
       return
     }
 
-    // Here you would send the reclamation to your backend
-    console.log(`Sending reclamation for colis ${id}: ${reclamationText}`)
+    if (!user) {
+      toast({
+        title: "Non autorisé",
+        description: "Vous devez être connecté pour signaler un problème",
+        variant: "destructive"
+      })
+      return
+    }
 
-    toast({
-      title: "Réclamation envoyée",
-      description: "Votre réclamation a été envoyée à l'administrateur",
-    })
+    try {
+      // Set a flag in localStorage to prevent duplicate submissions
+      const submissionKey = `reclamation_${id}_${Date.now()}`
+      if (localStorage.getItem(submissionKey)) {
+        console.log('Preventing duplicate submission')
+        return
+      }
+      localStorage.setItem(submissionKey, 'true')
 
-    setReclamationText('')
-    setReclamationOpen(false)
+      // Create a notification for admins and gestionnaires
+      const result = await createReclamationNotification({
+        colisId: id,
+        livreurId: user.id,
+        message: reclamationText.trim(),
+        type: "warning"
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || "Erreur lors de l'envoi de la réclamation")
+      }
+
+      toast({
+        title: "Réclamation envoyée",
+        description: "Votre signalement a été transmis aux gestionnaires",
+      })
+
+      setReclamationText('')
+      setReclamationOpen(false)
+
+      // Clear the flag after successful submission
+      setTimeout(() => {
+        localStorage.removeItem(submissionKey)
+      }, 5000)
+    } catch (error) {
+      console.error("Error submitting reclamation:", error)
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'envoi de la réclamation",
+        variant: "destructive"
+      })
+    }
   }
 
   // Function to open WhatsApp
@@ -463,12 +508,10 @@ export function ColisCard({
               variant="ghost"
               size="icon"
               className="rounded-[10px] bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-700 h-10 w-12 md:flex-1"
-              asChild
+              onClick={() => setDetailsOpen(true)}
               title="Voir détails"
             >
-              <Link href={`/livreur/colis/${id}`}>
-                <Eye className="h-5 w-5" />
-              </Link>
+              <Eye className="h-5 w-5" />
             </Button>
           </div>
         </CardFooter>

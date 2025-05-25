@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Building2, Plus, Search, MapPin, Package, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Building2, Plus, Search, MapPin, Package, Loader2, Filter, X } from "lucide-react";
 import { supabase } from '@/lib/supabase';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
@@ -15,52 +16,30 @@ export default function EntreprisesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [villeFilter, setVilleFilter] = useState("all");
+  const [colisCountFilter, setColisCountFilter] = useState("all");
   const [totalCount, setTotalCount] = useState(0);
+
+  // Available filter options
+  const [availableVilles, setAvailableVilles] = useState<string[]>([]);
+  const [allEntreprises, setAllEntreprises] = useState<any[]>([]);
+  const [filteredEntreprises, setFilteredEntreprises] = useState<any[]>([]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Load all entreprises initially
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
 
-        // First get the total count
-        let countQuery = supabase
+        // Get all entreprises
+        const { data, error } = await supabase
           .from('entreprises')
-          .select('*', { count: 'exact', head: true });
-
-        // Add search filter if query exists
-        if (searchQuery) {
-          countQuery = countQuery.or(`nom.ilike.%${searchQuery}%,contact.ilike.%${searchQuery}%`);
-        }
-
-        const { count, error: countError } = await countQuery;
-
-        if (countError) {
-          throw countError;
-        }
-
-        setTotalCount(count || 0);
-
-        // Then get the paginated data
-        let query = supabase
-          .from('entreprises')
-          .select('*');
-
-        // Add search filter if query exists
-        if (searchQuery) {
-          query = query.or(`nom.ilike.%${searchQuery}%,contact.ilike.%${searchQuery}%`);
-        }
-
-        // Apply pagination
-        const from = (currentPage - 1) * pageSize;
-        const to = from + pageSize - 1;
-
-        const { data, error } = await query
-          .order('nom')
-          .range(from, to);
+          .select('*')
+          .order('nom');
 
         if (error) {
           throw error;
@@ -83,7 +62,12 @@ export default function EntreprisesPage() {
           })
         );
 
-        setEntreprises(entreprisesWithStats);
+        setAllEntreprises(entreprisesWithStats);
+
+        // Extract unique values for filters
+        const villes = Array.from(new Set(entreprisesWithStats.map(entreprise => entreprise.ville).filter(Boolean)));
+        setAvailableVilles(villes);
+
         setError(null);
       } catch (err: any) {
         console.error('Error loading enterprises:', err);
@@ -94,16 +78,72 @@ export default function EntreprisesPage() {
     }
 
     loadData();
+  }, []);
 
-    // Reset to first page when search query changes
-    if (searchQuery && currentPage !== 1) {
+  // Apply filters whenever filter states change
+  useEffect(() => {
+    let filtered = [...allEntreprises];
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(entreprise =>
+        entreprise.nom.toLowerCase().includes(query) ||
+        entreprise.contact?.toLowerCase().includes(query) ||
+        entreprise.adresse?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply ville filter
+    if (villeFilter && villeFilter !== "all") {
+      filtered = filtered.filter(entreprise => entreprise.ville === villeFilter);
+    }
+
+    // Apply colis count filter
+    if (colisCountFilter && colisCountFilter !== "all") {
+      switch (colisCountFilter) {
+        case "none":
+          filtered = filtered.filter(entreprise => entreprise.nbColis === 0);
+          break;
+        case "low":
+          filtered = filtered.filter(entreprise => entreprise.nbColis > 0 && entreprise.nbColis <= 10);
+          break;
+        case "medium":
+          filtered = filtered.filter(entreprise => entreprise.nbColis > 10 && entreprise.nbColis <= 50);
+          break;
+        case "high":
+          filtered = filtered.filter(entreprise => entreprise.nbColis > 50);
+          break;
+      }
+    }
+
+    setFilteredEntreprises(filtered);
+    setTotalCount(filtered.length);
+
+    // Reset to first page when filters change
+    if (currentPage !== 1) {
       setCurrentPage(1);
     }
-  }, [searchQuery, currentPage, pageSize]);
+  }, [allEntreprises, searchQuery, villeFilter, colisCountFilter]);
+
+  // Apply pagination
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    setEntreprises(filteredEntreprises.slice(startIndex, endIndex));
+  }, [filteredEntreprises, currentPage, pageSize]);
+
+  // Reset filters
+  const resetFilters = () => {
+    setSearchQuery('');
+    setVilleFilter('all');
+    setColisCountFilter('all');
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gestion des Entreprises</h1>
+        <h1 className="text-3xl font-bold sm:text-2xl">Gestion des Entreprises</h1>
         <Button asChild>
           <Link href="/entreprises/nouveau">
             <Plus className="mr-2 h-4 w-4" /> Nouvelle Entreprise
@@ -112,19 +152,60 @@ export default function EntreprisesPage() {
       </div>
 
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-          <div>
-            <div className="text-lg font-medium mb-1.5">Recherche</div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-lg font-medium flex items-center">
+            <Filter className="mr-2 h-5 w-5" />
+            Filtres
           </div>
-          <div className="relative w-full md:w-1/2">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher une entreprise par nom ou contact"
-              className="pl-8 w-full"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          {(searchQuery || villeFilter !== "all" || colisCountFilter !== "all") && (
+            <Button variant="outline" onClick={resetFilters} size="sm">
+              <X className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:flex md:flex-wrap gap-4 items-end">
+          <div className="w-full md:flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Rechercher..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={villeFilter} onValueChange={setVilleFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Toutes les villes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les villes</SelectItem>
+                {availableVilles.map(ville => (
+                  <SelectItem key={ville} value={ville}>{ville}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full md:flex-1">
+            <Select value={colisCountFilter} onValueChange={setColisCountFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Nombre de colis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les nombres</SelectItem>
+                <SelectItem value="none">Aucun colis (0)</SelectItem>
+                <SelectItem value="low">Peu de colis (1-10)</SelectItem>
+                <SelectItem value="medium">Moyen (11-50)</SelectItem>
+                <SelectItem value="high">Beaucoup (50+)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

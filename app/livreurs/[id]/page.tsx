@@ -6,11 +6,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Edit, Trash, User, Phone, Mail, MapPin, Package, Truck, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowLeft, Edit, Trash, User, Phone, Mail, MapPin, Package, Truck, RefreshCw, UserPlus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
 import { use } from 'react';
 import { showConfirmation, showSuccess, showError } from '@/lib/sweetalert';
+import { AssignerModal } from '@/components/assigner-modal';
 
 export default function LivreurDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function LivreurDetailsPage({ params }: { params: { id: string } 
   const [livreur, setLivreur] = useState<any>(null);
   const [colis, setColis] = useState<any[]>([]);
   const [bons, setBons] = useState<any[]>([]);
+  const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
 
   // Load livreur data
   useEffect(() => {
@@ -243,13 +245,14 @@ export default function LivreurDetailsPage({ params }: { params: { id: string } 
             <User className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-3xl font-bold">{livreur.nom}</h1>
-              <p className="text-muted-foreground">
-                ID: {livreur.id}
-              </p>
             </div>
           </div>
 
           <div className="flex gap-2">
+            <Button variant="default" onClick={() => setIsAssignerModalOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assigner
+            </Button>
             <Button variant="outline" asChild>
               <Link href={`/livreurs/${id}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
@@ -450,6 +453,18 @@ export default function LivreurDetailsPage({ params }: { params: { id: string } 
           </Card>
         </div>
       </div>
+
+      {/* Assigner Modal */}
+      <AssignerModal
+        isOpen={isAssignerModalOpen}
+        onClose={() => setIsAssignerModalOpen(false)}
+        livreurId={id}
+        livreurName={livreur.nom}
+        onSuccess={() => {
+          // Refresh the page data when a colis is assigned
+          router.push(`/livreurs/${id}?refresh=${Date.now()}`)
+        }}
+      />
     </div>
   );
 }
